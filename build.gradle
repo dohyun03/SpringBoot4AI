@@ -16,6 +16,7 @@ java {
 
 repositories {
 	mavenCentral()
+	maven { url = 'https://repo.spring.io/milestone' }
 }
 
 dependencies {
@@ -31,6 +32,8 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	implementation 'org.springframework.boot:spring-boot-h2console'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation platform('org.springframework.ai:spring-ai-bom:2.0.0-M1')
+	implementation 'org.springframework.ai:spring-ai-client-chat'
 }
 
 tasks.named('test') {

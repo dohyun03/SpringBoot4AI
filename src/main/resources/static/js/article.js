@@ -1,0 +1,266 @@
+// 삭제 기능
+const deleteButton = document.getElementById('delete-btn');
+
+if (deleteButton) {
+    deleteButton.addEventListener('click', event => {
+        let id = document.getElementById('article-id').value;
+        fetch(`/api/articles/${id}`, {
+            method: 'DELETE'
+        })
+            .then(() => {
+                alert('삭제가 완료되었습니다.');
+                location.replace('/articles');
+            });
+    });
+}
+
+// 수정 기능
+// ① id가 modify-btn인 엘리먼트 조회
+const modifyButton = document.getElementById('modify-btn');
+
+if (modifyButton) {
+    // ② 클릭 이벤트가 감지되면 수정 API 요청
+    modifyButton.addEventListener('click', event => {
+        let params = new URLSearchParams(location.search);
+        let id = params.get('id');
+
+        fetch(`/api/articles/${id}`, {
+            method: 'PUT',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                title: document.getElementById('title').value,
+                content: document.getElementById('content').value,
+                imageUrl: document.getElementById('image-url').value
+            })
+        })
+            .then(() => {
+                alert('수정이 완료되었습니다.');
+                location.replace(`/articles/${id}`);
+            });
+    });
+}
+
+// 등록 기능
+// ① id가 create-btn인 엘리먼트
+const createButton = document.getElementById("create-btn");
+
+if (createButton) {
+    // ② 클릭 이벤트가 감지되면 생성 API 요청
+    createButton.addEventListener("click", (event) => {
+        fetch("/api/articles", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                title: document.getElementById("title").value,
+                content: document.getElementById("content").value,
+                imageUrl: document.getElementById("image-url").value
+            }),
+        }).then(() => {
+            alert("등록 완료되었습니다.");
+            location.replace("/articles");
+        });
+    });
+}
+
+// ① id가 ai-assist-btn인 엘리먼트
+const aiAssistButton = document.getElementById('ai-assist-btn');
+
+if (aiAssistButton) {
+    // ② 클릭 이벤트가 감지되면 모달을 열고 이전 제안 숨기기
+    aiAssistButton.addEventListener('click', event => {
+        $('#aiAssistModal').modal('show');
+        document.getElementById('ai-suggestion').style.display = 'none';
+        document.getElementById('ai-question').value = '';
+    });
+}
+
+// ③ id가 get-suggestion-btn인 엘리먼트 (모달에 있는 버튼)
+const getSuggestionButton = document.getElementById('get-suggestion-btn');
+
+if (getSuggestionButton) {
+    // ④ 클릭 이벤트가 감지되면 작성한 내용을 바탕으로 글 작성 도움 API 호출
+    getSuggestionButton.addEventListener('click', event => {
+        const title = document.getElementById('title').value;
+        const content = document.getElementById('content').value;
+        const question = document.getElementById('ai-question').value;
+
+        if (!question.trim()) {
+            alert('고민되는 내용을 입력해주세요.');
+            return;
+        }
+
+        document.getElementById('ai-loading').style.display = 'block';
+        document.getElementById('ai-suggestion').style.display = 'none';
+
+        const body = JSON.stringify({
+            title: title,
+            content: content,
+            question: question
+        });
+
+        fetch('/api/ai-suggestions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: body
+        })
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('ai-loading').style.display = 'none';
+                const suggestionContent = document.getElementById('ai-suggestion-content');
+
+                // ⑤ 응답이 오면 제안 뷰 표시
+                let html = '';
+                if (data.suggestions && data.suggestions.length > 0) {
+                    html += '<ul class="list-group">';
+                    data.suggestions.forEach((suggestion, index) => {
+                        html += `<li class="list-group-item suggestion-item" style="cursor: pointer;" data-suggestion="${suggestion.replace(/"/g, '&quot;')}" title="클릭하면 본문에 추가됩니다">
+                                ${suggestion}
+                                <small class="text-muted float-right">클릭하여 추가</small>
+                             </li>`;
+                    });
+                    html += '</ul>';
+                }
+
+                suggestionContent.innerHTML = html;
+                document.getElementById('ai-suggestion').style.display = 'block';
+            })
+    });
+}
+
+// ⑥ 제안 선택을 누르면 현재 내용 끝에 제안을 추가
+const suggestionContent = document.getElementById('ai-suggestion-content');
+if (suggestionContent) {
+    suggestionContent.addEventListener('click', function(e) {
+        const suggestionItem = e.target.closest('.suggestion-item');
+        if (suggestionItem) {
+            const suggestion = suggestionItem.getAttribute('data-suggestion');
+            const contentTextarea = document.getElementById('content');
+
+            const currentContent = contentTextarea.value;
+            const separator = currentContent && !currentContent.endsWith('\n') ? '\n\n' : '';
+            contentTextarea.value = currentContent + separator + suggestion;
+
+            $('#aiAssistModal').modal('hide');
+            contentTextarea.focus();
+        }
+    });
+}
+
+// ① 페이지 로드 시 기존 이미지 표시
+window.addEventListener('DOMContentLoaded', () => {
+    const imageUrl = document.getElementById('image-url')?.value;
+    if (imageUrl) {
+        displayImagePreview(imageUrl);
+    }
+});
+
+// ② id가 image-upload인 엘리먼트
+const imageUpload = document.getElementById('image-upload');
+if (imageUpload) {
+    // ③ 클릭 이벤트가 감지되면 이미지 업로드 요청 처리
+    imageUpload.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // ④ 이미지 파일 검증
+        if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+
+        // ⑤ 이미지 업로드 요청
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        }).then((response) => {
+            if (!response.ok) {
+                alert('이미지 업로드에 실패했습니다.');
+                throw new Error();
+            }
+            return response.json();
+        })
+            .then((data) => {
+                document.getElementById('image-url').value = data.imageUrl;
+                displayImagePreview(data.imageUrl);
+            })
+            .catch((e) => console.error(e));
+    });
+}
+
+// ⑥ 이미지 미리보기를 위한 함수
+function displayImagePreview(imageUrl) {
+    const preview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+
+    if (preview && previewImg && imageUrl) {
+        previewImg.src = imageUrl;
+        preview.style.display = 'block';
+    }
+}
+
+// ⑦ id가 remove-image-btn인 엘리먼트
+const removeImageButton = document.getElementById('remove-image-btn');
+if (removeImageButton) {
+    // ⑧ 클릭 이벤트가 감지되면 이미지 제거 처리
+    removeImageButton.addEventListener('click', () => {
+        document.getElementById('image-url').value = '';
+        document.getElementById('image-upload').value = '';
+        document.getElementById('image-preview').style.display = 'none';
+    });
+}
+
+// ① id가 ai-thumbnail-btn인 엘리먼트
+const aiThumbnailButton = document.getElementById('ai-thumbnail-btn');
+if (aiThumbnailButton) {
+    aiThumbnailButton.addEventListener('click', async () => {
+        const title = document.getElementById('title').value;
+        const content = document.getElementById('content').value;
+
+        // ② 제목, 내용이 비어있으면 경고창 띄우기
+        if (!title.trim() && !content.trim()) {
+            alert('제목이나 내용을 먼저 입력해주세요.');
+            return;
+        }
+
+        // ③ 로딩 모달 표시
+        const loadingDiv = document.getElementById('ai-thumbnail-loading');
+        loadingDiv.style.display = 'block';
+        aiThumbnailButton.disabled = true;
+
+        // ④ AI 섬네일 생성 API 호출
+        fetch('/api/ai-thumbnails', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: title,
+                content: content
+            }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        }).then((response) => {
+            if (!response.ok) {
+                alert('섬네일 생성에 실패했습니다.');
+                throw new Error();
+            }
+            return response.json();
+        }).then((data) => {
+            // ⑤ 이미지 URL을 이미지 URL 입력란에 설정하고 미리보기 표시
+            document.getElementById('image-url').value = data.imageUrl;
+            displayImagePreview(data.imageUrl);
+        }).finally(() => {
+            loadingDiv.style.display = 'none';
+            aiThumbnailButton.disabled = false;
+        });
+    });
+}
